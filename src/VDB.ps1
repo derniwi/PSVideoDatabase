@@ -6,6 +6,10 @@
 #  ffprobe.exe, retrieve data from themoviedb.org TMDB (you need an API key to
 #  retrieve data).
 #
+# Requirement:
+# PowerShell 6 or later:
+# https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows
+#
 # v1.0.0 (2024-10-22):
 #  first version
 # v1.0.1 (2024-10-25):
@@ -1712,6 +1716,10 @@ WHERE VideoList.FileName LIKE ?
 			$res = $db.BindText($stmt, 4, "%$searchTerm%")
 		}
 		
+		# Create an culture object for en-US since the database uses this format to
+		# store values, i.e. the decimal separator is a ".".
+		$culture = [System.Globalization.CultureInfo]::GetCultureInfo("en-US")
+
 		# Create a data table
 		$dataTable = New-Object System.Data.DataTable
 		
@@ -1743,7 +1751,20 @@ WHERE VideoList.FileName LIKE ?
 				break
 			}
 			$row = $dataTable.NewRow()
-			$row.ItemArray = $result[1]
+			# Convert values from database into the correct format
+			# since StepAndGetRow will return an array of strings.
+			for ($i = 0; $i -lt $columnCount; $i++) {
+				$val = $result[1][$i]
+				if ($listInteger -contains $i) {
+					$row[$i] = [System.Int64]$($val)
+				} elseif ($listDouble -contains $i) {
+					$valDbl = [System.Double]::Parse($val, $culture)
+					$row[$i] = [Math]::Round($valDbl, 2)
+				} else {
+					$row[$i] = $val
+				}
+			}
+			
 			$dataTable.Rows.Add($row)
 		}
 		
